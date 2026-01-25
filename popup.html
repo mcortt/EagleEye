@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<body style="width: 220px; font-family: sans-serif; padding: 10px;">
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <h3 style="margin: 0;">EagleEye</h3>
+    <span style="font-size: 0.8em; color: green;">Active</span>
+  </div>
+  <p style="font-size: 0.85em; color: #555;">Analyzing headers for security risks.</p>
+  <button id="settings" style="width: 100%; padding: 6px; cursor: pointer;">Settings</button>
+  <script>
+    document.getElementById('settings').onclick = () => browser.runtime.openOptionsPage();
+  </script>
+</body>
+</html>

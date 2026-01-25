@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "EagleEye",
+  "version": "1.0",
+  "description": "Analyzes Source IP security and maps the email routing path.",
+  "permissions": [
+    "messagesRead",
+    "accountsRead",
+    "storage",
+    "https://api.abuseipdb.com/*",
+    "https://vpnapi.io/*",
+    "https://ipinfo.io/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "browser_style": true
+  },
+  "message_display_action": {
+    "default_popup": "popup.html"
+  }
+}
