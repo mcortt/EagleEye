@@ -1,6 +1,6 @@
 # 🦅 EagleEye: Advanced Email Forensics
 
-![Version](https://img.shields.io/badge/version-1.1-blue) ![Thunderbird](https://img.shields.io/badge/Thunderbird-115%2B-fea40f) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-1.2.2-blue) ![Thunderbird](https://img.shields.io/badge/Thunderbird-115%2B-fea40f) ![License](https://img.shields.io/badge/license-MIT-green)
 
 **EagleEye** is a professional-grade cybersecurity extension for Mozilla Thunderbird. It provides real-time forensic analysis of incoming messages by tracing network hops, detecting anonymity networks (VPN/Tor), and validating cryptographic identity markers (DKIM/SPF/ARC) [cite: 2026-01-21, 2026-01-22].
 
