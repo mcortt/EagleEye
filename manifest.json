@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "EagleEye",
-  "version": "1.1",
+  "version": "1.2.1",
   "description": "Advanced email forensics. Maps hops, detects VPNs, and provides deep security analysis.",
   "author": "mcortt",
   "browser_specific_settings": {

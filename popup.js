@@ -25,11 +25,26 @@ async function loadData() {
     const loc = data.location || {};
     const sec = data.security || {};
 
-    // Header
+    // --- HEADER ---
     const badge = document.getElementById('mainStatus');
     badge.textContent = data.statusText;
     badge.style.backgroundColor = data.theme.border;
-    document.getElementById('ipDisplay').textContent = data.sourceIp;
+
+    // --- CLICKABLE IP LOGIC START ---
+    const ipEl = document.getElementById('ipDisplay');
+    ipEl.textContent = data.sourceIp;
+    
+    // Make it look and act like a link
+    ipEl.style.cursor = "pointer";
+    ipEl.style.textDecoration = "underline";
+    ipEl.title = "View full report on AbuseIPDB";
+    
+    ipEl.onclick = function() {
+        browser.tabs.create({ 
+            url: `https://www.abuseipdb.com/check/${data.sourceIp}` 
+        });
+    };
+    // --- CLICKABLE IP LOGIC END ---
 
     // Threat Intel
     const scoreEl = document.getElementById('scoreVal');
@@ -60,6 +75,32 @@ async function loadData() {
     setFlag('proxyVal', sec.proxy);
     setFlag('torVal', sec.tor);
     setFlag('relayVal', sec.relay);
+
+    // --- AUTHENTICATION UI ---
+    // Make sure your popup.html has elements with these IDs (we will add them next)
+    const setAuth = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return; // Safety
+        
+        el.textContent = val.toUpperCase();
+        
+        if (val === 'pass') {
+            el.style.color = '#2e7d32'; // Green
+            el.style.fontWeight = 'bold';
+        } else if (val === 'fail') {
+            el.style.color = '#c62828'; // Red
+            el.style.fontWeight = '900';
+        } else if (val === 'softfail' || val === 'none') {
+            el.style.color = '#ef6c00'; // Orange/Grey
+        }
+    };
+
+    const auth = data.auth || { spf: 'none', dkim: 'none', arc: 'none', dmarc: 'none' };
+    
+    setAuth('spfVal', auth.spf);
+    setAuth('dkimVal', auth.dkim);
+    setAuth('dmarcVal', auth.dmarc); 
+    setAuth('arcVal', auth.arc);
 
     // Network Context
     document.getElementById('ispVal').textContent = net.org || "Unknown ISP";

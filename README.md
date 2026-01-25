@@ -1,21 +1,50 @@
 # 🦅 EagleEye: Advanced Email Forensics
 
-![Version](https://img.shields.io/badge/version-1.0-blue) ![Thunderbird](https://img.shields.io/badge/Thunderbird-115%2B-fea40f) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-1.1-blue) ![Thunderbird](https://img.shields.io/badge/Thunderbird-115%2B-fea40f) ![License](https://img.shields.io/badge/license-MIT-green)
 
-**EagleEye** is a professional-grade cybersecurity extension for Mozilla Thunderbird. It analyzes the "Received" headers of incoming emails to trace their origin, detect VPNs/Proxies, and score the sender's reputation against global threat intelligence databases.
+**EagleEye** is a professional-grade cybersecurity extension for Mozilla Thunderbird. It provides real-time forensic analysis of incoming messages by tracing network hops, detecting anonymity networks (VPN/Tor), and validating cryptographic identity markers (DKIM/SPF/ARC) [cite: 2026-01-21, 2026-01-22].
+
+---
+
+## 🚦 Forensic Logic (TLP)
+
+EagleEye utilizes a strict **Top-Down Hierarchy** to categorize email risk levels. It employs a "Veto System"—if any critical security check fails, the status is immediately escalated [cite: 2026-01-21].
+
+### 🔴 RED (High Risk)
+* **Blocked Country**: Source IP originates from a country on your blacklist [cite: 2026-01-21].
+* **Reputation Threshold**: Abuse Confidence $Score \ge User Threshold$ [cite: 2026-01-21].
+* **Security Fail (DKIM)**: Cryptographic proof of message tampering [cite: 2026-01-21].
+* **Spoof Detected (SPF)**: Unauthorized sender identity (where $ARC \neq pass$) [cite: 2026-01-21].
+
+### 🟠 ORANGE (Caution)
+* **Auth Issue**: SPF "Softfail" or DMARC policy violation [cite: 2026-01-21].
+* **Hidden Identity**: Sender is utilizing a VPN, Tor exit node, or Proxy (excluding whitelisted Cloud Providers) [cite: 2026-01-21].
+* **Suspicious IP**: Abuse Confidence Score falls between $15\%$ and your custom limit [cite: 2026-01-21].
+
+### 🟢 GREEN (Clean)
+* **Cloud Server**: Verified origin from a whitelisted infrastructure provider (e.g., Microsoft 365, Google Workspace, Amazon SES) [cite: 2026-01-21].
+* **Clean Sender**: Passed all forensic checks with a reputation score $\le 15\%$ [cite: 2026-01-21].
+
+---
+
+## ⚠️ Security Disclaimers
+
+> [!WARNING]
+> **"Clean" is not "Safe":** A "Clean Sender" status only indicates that the sending infrastructure has a neutral reputation and identity markers (SPF/DKIM) are valid [cite: 2026-01-21]. It does **not** guarantee the content of the email is safe. Legitimate accounts can be compromised to send phishing or malware. Always practice "Zero Trust" with links and attachments [cite: 2026-01-21].
+
+> [!NOTE]
+> **Not a Cryptographic Verifier:** EagleEye is a forensic reporting tool that displays the results of authentication checks performed by your mail server [cite: 2026-01-22]. It is **not** a replacement for dedicated cryptographic verification extensions like [DKIM Verifier](https://github.com/protomouse/dkim_verifier) [cite: 2026-01-22].
+
+---
 
 ## 🚀 Features
 
-* **🛡️ IP Reputation Analysis:** Automatically queries **AbuseIPDB** to score the sender's IP.
-* **🕵️ VPN & Proxy Detection:** Uses **vpnapi.io** to detect if the sender is hiding behind a VPN, Tor, or Public Proxy.
-* **📍 Hop Visualization:** Maps the routing path from the sender to your inbox, visualizing geographic hops.
-* **🏢 Network Context:** Displays the ISP, ASN, Usage Type (Data Center vs. Residential), and Timezone.
-* **🚦 Smart Alerts:**
-    * **GREEN:** Clean residential/corporate IPs.
-    * **ORANGE:** Suspicious usage (VPNs, Data Centers) or low-level abuse history.
-    * **RED:** High-risk IPs, known botnets, or countries you have blacklisted.
-* **☁️ Cloud Intelligence:** Distinguishes between "Safe" cloud providers (AWS, Google Cloud) and suspicious VPS hosts.
-* **🌑 Adaptive UI:** Fully supports Thunderbird Dark and Light modes.
+* **🛡️ Multi-Vector Authentication:** Parsed results for **SPF, DKIM, DMARC, and ARC** displayed in a single view [cite: 2026-01-21, 2026-01-22].
+* **🕵️ Anonymity Detection:** Real-time identification of VPN, Tor, and Proxy usage [cite: 2026-01-21].
+* **📍 Hop Visualization:** Geographic mapping of the routing path from sender to inbox [cite: 2026-01-21].
+* **🏢 Network Context:** Deep metadata including ISP, ASN, Usage Type, and Local Timezone [cite: 2026-01-21].
+* **☁️ Cloud Whitelisting:** Intelligent filtering for major AWS, Google, and Microsoft IP ranges to reduce noise [cite: 2026-01-21].
+* **🔗 Direct Drill-down:** One-click links to full **AbuseIPDB** forensic reports [cite: 2026-01-21].
 
 ## ⚙️ Installation & Setup
 
@@ -23,31 +52,18 @@
 Download the latest `.xpi` release or load the extension manually via **Debug Add-ons**.
 
 ### 2. Get Your Free API Keys
-EagleEye relies on industry-standard threat intelligence APIs. You will need to obtain free keys for the extension to function:
-1.  **[AbuseIPDB](https://www.abuseipdb.com/):** (Required) For abuse confidence scores.
-2.  **[vpnapi.io](https://vpnapi.io/):** (Required) For VPN/Proxy detection.
-3.  **[ipinfo.io](https://ipinfo.io/):** (Optional) For detailed hop mapping.
+> [!IMPORTANT]
+> **API Keys Required:** EagleEye is a "Bring Your Own Key" (BYOK) extension. It **will not function** without valid API keys from the providers below [cite: 2026-01-21].
 
-### 3. Configure
-Open the **EagleEye Settings** in Thunderbird:
-* Paste your API keys.
-* Set your **Risk Threshold** (Default: 50%).
-* (Optional) Blacklist specific countries or whitelist specific Cloud Providers.
+1.  **[AbuseIPDB](https://www.abuseipdb.com/)**: (Required) Reputation scoring.
+2.  **[vpnapi.io](https://vpnapi.io/)**: (Required) VPN/Proxy detection.
+3.  **[ipinfo.io](https://ipinfo.io/)**: (Optional) Enhanced geographic mapping.
 
 ## 🔒 Privacy & Data Usage
 
-EagleEye is designed with privacy as a priority:
-* **Local Processing:** All logic runs locally in your Thunderbird client.
-* **Direct API Calls:** IP addresses are sent *directly* from your computer to the API providers (AbuseIPDB, vpnapi). No middleman servers are used.
-* **Zero Analytics:** This extension collects **no** usage data, telemetry, or personal information.
-* **Auto-Cleanup:** The extension includes a garbage collector that automatically deletes cached IP data after 7 days and email analysis data after 24 hours.
-
-## 🛠️ Development
-
-To build from source:
-1.  Clone this repository.
-2.  Zip the contents (ensure `manifest.json` is at the root).
-3.  Load into Thunderbird via `Tools > Developer Tools > Debug Add-ons`.
+* **Local Processing:** All forensic logic runs locally in your Thunderbird client [cite: 2026-01-21].
+* **Zero Analytics:** No usage data, telemetry, or personal information is collected [cite: 2026-01-21].
+* **Auto-Cleanup:** Built-in garbage collector deletes cached IP data after 7 days and email analysis data after 24 hours [cite: 2026-01-21].
 
 ---
-*Built by [Your Name/Handle]*
+*Built by mcortt*
