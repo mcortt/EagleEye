@@ -1,14 +1,157 @@
 <!DOCTYPE html>
 <html>
-<body style="width: 220px; font-family: sans-serif; padding: 10px;">
-  <div style="display: flex; align-items: center; gap: 10px;">
-    <h3 style="margin: 0;">EagleEye</h3>
-    <span style="font-size: 0.8em; color: green;">Active</span>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #f4f4f4;
+    --card-bg: #ffffff;
+    --text: #333333;
+    --sub-text: #666666;
+    --border: #dddddd;
+    --header-text: #0078d7;
+    --btn-bg: #eeeeee;
+    --btn-hover: #dddddd;
+    --btn-text: #333333;
+    --val-inactive: #555555; 
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1c;
+      --card-bg: #2b2b2b;
+      --text: #ffffff;
+      --sub-text: #cccccc;
+      --border: #444444;
+      --header-text: #4cc2ff;
+      --btn-bg: #3a3a3a;
+      --btn-hover: #4a4a4a;
+      --btn-text: #ffffff;
+      --val-inactive: #e0e0e0; 
+    }
+  }
+
+  /* 1. Slightly reduced width for a tighter feel */
+  body { width: 360px; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  
+  /* 2. Reduced padding (15px -> 10px) to save vertical space */
+  .header { 
+    padding: 10px 15px; 
+    background: var(--card-bg); 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+  }
+
+  h2 { margin: 0; font-size: 18px; color: var(--header-text); }
+  .status-badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-top: 3px; color: white; }
+  
+  .section { padding: 10px 15px; background: var(--card-bg); margin-top: 1px; }
+  
+  .section h4 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: var(--sub-text); letter-spacing: 0.5px; border-bottom: 2px solid var(--border); padding-bottom: 4px; }
+  
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px; text-align: center; }
+  
+  .label { color: var(--sub-text); font-size: 9px; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
+  .val { font-weight: 600; color: var(--val-inactive); font-size: 12px; } 
+  
+  /* 3. The Route List now handles its own scrolling */
+  #routeList {
+      max-height: 90px;  /* Limits height to ~3 lines */
+      overflow-y: auto;   /* Adds scrollbar if needed */
+      scrollbar-width: thin; /* Modern thin scrollbar */
+      margin-top: 5px;
+  }
+  
+  .hop-list { font-size: 11px; }
+  .hop { padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .hop:last-child { border: none; }
+  
+  .btn { display: block; width: 100%; padding: 8px; text-align: center; background: var(--btn-bg); border: none; cursor: pointer; color: var(--btn-text); font-weight: 600; border-radius: 4px; flex: 1; font-size: 13px; }
+  .btn:hover { background: var(--btn-hover); }
+  
+  #loading { padding: 20px; text-align: center; color: var(--sub-text); }
+  #content { display: none; }
+</style>
+</head>
+<body>
+  <div id="loading">Analyzing...</div>
+  
+  <div id="content">
+    <div class="header">
+      <div>
+        <h2 id="ipDisplay">0.0.0.0</h2>
+        <div id="mainStatus" class="status-badge">ANALYZING</div>
+      </div>
+      <img src="icon.svg" style="width: 38px; height: 38px;">
+    </div>
+
+    <div class="section">
+      <h4>Threat Intelligence</h4>
+      
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px;">
+         <div style="text-align: left;">
+            <div class="label">ABUSE SCORE</div>
+            <div class="val" id="scoreVal" style="font-size: 1.3em; color: var(--text);">0%</div>
+         </div>
+         <div style="text-align: right;">
+            <div class="label">COUNTRY</div>
+            <div class="val" id="countryVal" style="font-size: 1.1em; color: var(--text);">--</div>
+         </div>
+      </div>
+      
+      <div class="grid-4">
+          <div><div class="label">VPN</div><div class="val" id="vpnVal">No</div></div>
+          <div><div class="label">PROXY</div><div class="val" id="proxyVal">No</div></div>
+          <div><div class="label">TOR</div><div class="val" id="torVal">No</div></div>
+          <div><div class="label">RELAY</div><div class="val" id="relayVal">No</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Network Context</h4>
+      
+      <div class="grid-4" style="grid-template-columns: 1fr 1fr; margin-bottom: 8px;">
+          <div style="text-align: left;">
+              <div class="label">USAGE TYPE</div>
+              <div class="val" id="usageVal" style="color: var(--text);">--</div>
+          </div>
+          <div style="text-align: right;">
+              <div class="label">LOCAL TIMEZONE</div>
+              <div class="val" id="tzVal" style="color: var(--text);">--</div>
+          </div>
+      </div>
+
+      <div style="font-size:11px; margin-bottom:6px; border-top: 1px solid var(--border); padding-top: 6px;">
+        <span class="label">ISP / ORGANIZATION</span><br>
+        <strong id="ispVal" style="color: var(--text);">Unknown</strong>
+        <span id="asnVal" style="color: var(--sub-text); font-size: 0.9em; margin-left: 5px;">(AS----)</span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size:11px;">
+        <div>
+            <span class="label">DOMAIN</span><br>
+            <span id="domainVal" style="color: var(--text);">--</span>
+        </div>
+        <div style="text-align: right;">
+            <span class="label">LOCATION</span><br>
+            <span id="cityVal" style="color: var(--text);">Unknown</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Routing Path</h4>
+      <div id="routeList" class="hop-list"></div>
+    </div>
+    
+    <div style="display: flex; gap: 10px; padding: 10px; background: var(--bg); border-top: 1px solid var(--border);">
+        <button class="btn" id="rescanBtn" style="background: #e3f2fd; color: #0277bd; border: 1px solid #bbdefb;">Force Rescan</button>
+        <button class="btn" id="settingsBtn">Settings</button>
+    </div>
   </div>
-  <p style="font-size: 0.85em; color: #555;">Analyzing headers for security risks.</p>
-  <button id="settings" style="width: 100%; padding: 6px; cursor: pointer;">Settings</button>
-  <script>
-    document.getElementById('settings').onclick = () => browser.runtime.openOptionsPage();
-  </script>
+
+  <script src="popup.js"></script>
 </body>
 </html>

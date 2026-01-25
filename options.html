@@ -2,42 +2,98 @@
 <html>
 <head><meta charset="utf-8">
 <style>
-  body { padding: 25px; font-family: 'Segoe UI', sans-serif; min-width: 380px; color: #333; }
-  h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+  :root {
+    --bg: #ffffff;
+    --text: #333333;
+    --input-bg: #ffffff;
+    --input-border: #cccccc;
+    --header: #0078d7;
+    --row-bg: #f9f9f9;
+    --row-border: #eeeeee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #202020;
+      --text: #e0e0e0;
+      --input-bg: #333333;
+      --input-border: #555555;
+      --header: #4cc2ff;
+      --row-bg: #2d2d2d;
+      --row-border: #444444;
+    }
+  }
+  body { padding: 25px; font-family: 'Segoe UI', sans-serif; min-width: 440px; color: var(--text); background: var(--bg); }
+  h3 { margin-top: 0; border-bottom: 2px solid var(--row-border); padding-bottom: 10px; color: var(--header); }
   label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
-  input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-  .row { margin-bottom: 15px; }
-  .sub { font-size: 0.8em; color: #666; margin-top: 3px; }
-  .req { color: #d32f2f; font-size: 0.75em; float: right; font-weight: bold; }
-  .opt { color: #388e3c; font-size: 0.75em; float: right; font-weight: bold; }
-  button { width: 100%; padding: 10px; background: #0078d7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+  input[type="text"], select, textarea { width: 100%; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px; box-sizing: border-box; font-family: inherit; background: var(--input-bg); color: var(--text); }
+  textarea { height: 60px; font-family: monospace; }
+  .row { margin-bottom: 20px; }
+  .sub { font-size: 0.8em; opacity: 0.7; margin-top: 3px; }
+  .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--input-bg); padding: 10px; border: 1px solid var(--input-border); border-radius: 4px; margin-top: 5px; }
+  .cb-item { display: flex; align-items: center; font-size: 0.9em; }
+  .cb-item input { width: auto; margin-right: 8px; }
+  button { width: 100%; padding: 12px; background: #0078d7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; }
   button:hover { background: #005a9e; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 12px; background: var(--row-bg); border-radius: 4px; border: 1px solid var(--row-border); }
+  .toggle-label { font-weight: 600; font-size: 0.9em; }
 </style>
 </head>
 <body>
-  <h3>EagleEye Configuration</h3>
-  
+  <h3>EagleEye Settings</h3>
   <div class="row">
-    <label>AbuseIPDB Key <span class="req">REQUIRED</span></label>
+    <label>Display Banner When...</label>
+    <select id="bannerMode">
+      <option value="always">Always (Show for every email)</option>
+      <option value="caution">Caution & High Risk Only (Hide if clean)</option>
+      <option value="high_risk">High Risk Only (Red alerts only)</option>
+      <option value="never">Never (Only show details in popup)</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>AbuseIPDB Key</label>
     <input type="text" id="abuseKey">
-    <div class="sub">For Reputation Scores. <a href="https://www.abuseipdb.com/" target="_blank">Get Free Key</a></div>
   </div>
-
   <div class="row">
-    <label>vpnapi.io Key <span class="req">REQUIRED</span></label>
+    <label>vpnapi.io Key</label>
     <input type="text" id="vpnKey">
-    <div class="sub">For VPN/Tor Detection. <a href="https://vpnapi.io/" target="_blank">Get Free Key</a></div>
   </div>
-
   <div class="row">
-    <label>ipinfo.io Token <span class="opt">OPTIONAL</span></label>
-    <input type="text" id="ipinfoKey">
-    <div class="sub">For Map Data limits. <a href="https://ipinfo.io/" target="_blank">Get Free Token</a></div>
+    <label>High Risk Threshold: <span id="threshVal" style="color:#0078d7; font-weight:bold;">50%</span></label>
+    <div class="sub">AbuseIPDB score required to trigger a RED alert.</div>
+    <input type="range" id="riskThreshold" min="0" max="100" value="50" style="width:100%; margin-top:5px;">
   </div>
-
-  <button id="save">Save Settings</button>
-  <p id="msg" style="text-align: center; font-size: 0.9em; min-height: 1.2em;"></p>
-
+  <div class="row">
+    <label>Cloud Provider Allowlist</label>
+    <div class="sub">Treat these as "Clean" (Cloud Server) instead of "Caution".</div>
+    <div class="checkbox-group">
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="AMAZON" checked> Amazon AWS</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="GOOGLE" checked> Google Cloud</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="MICROSOFT" checked> Microsoft Azure</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="CLOUDFLARE" checked> Cloudflare</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="ORACLE" checked> Oracle Cloud</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="IBM" checked> IBM Cloud</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="SALESFORCE" checked> Salesforce</div>
+        <div class="cb-item"><input type="checkbox" class="cloud-cb" value="RACKSPACE" checked> Rackspace</div>
+    </div>
+    <div style="margin-top: 10px;">
+        <label style="font-size: 0.85em;">Custom Keywords (Comma-separated)</label>
+        <input type="text" id="customCloud" placeholder="HEROKU, SALESFORCE, ALIBABA">
+    </div>
+  </div>
+  <div class="row">
+    <label>Blocked Countries (ISO Codes)</label>
+    <textarea id="blacklist" placeholder="CN, RU, KP, IR"></textarea>
+  </div>
+  <div class="toggle-row">
+    <span class="toggle-label">Visualize Route (Map Hops)</span>
+    <input type="checkbox" id="showMap" checked>
+  </div>
+  <div class="row">
+    <label>ipinfo.io Token (Optional)</label>
+    <input type="text" id="ipinfoKey">
+  </div>
+  <button id="save">Save Configuration</button>
+  <p id="msg" style="text-align: center; font-size: 0.9em; min-height: 1.2em; font-weight: bold; margin-top: 10px;"></p>
   <script src="options.js"></script>
 </body>
 </html>

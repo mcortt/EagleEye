@@ -1,38 +1,67 @@
-browser.messageDisplay.onMessageDisplayed.addListener(async (tabId, messageId) => {
-  
-  // 1. Load Keys
-  const settings = await browser.storage.local.get(['abuseApiKey', 'vpnApiKey', 'ipinfoToken']);
-  if (!settings.abuseApiKey || !settings.vpnApiKey) return; 
+// Register Global Injector
+browser.messageDisplayScripts.register({ js: [{ file: "injector.js" }] });
 
-  // 2. Get Headers & Extract Chain
-  const fullMessage = await browser.messages.getFull(messageId.id);
+// Listen for messages from Popup (Rescan)
+browser.runtime.onMessage.addListener(async (request, sender) => {
+    if (request.command === "forceRescan") {
+        const tab = (await browser.tabs.query({ active: true, currentWindow: true }))[0];
+        const message = await browser.messageDisplay.getDisplayedMessage(tab.id);
+        if (message) {
+            await analyzeMessage(tab.id, message.id, true);
+            return { status: "started" };
+        }
+    }
+});
+
+browser.messageDisplay.onMessageDisplayed.addListener(async (tab, message) => {
+    await analyzeMessage(tab.id, message.id, false);
+});
+
+async function analyzeMessage(tabId, messageId, bypassCache) {
+  const settings = await browser.storage.local.get([
+      'abuseApiKey', 'vpnApiKey', 'ipinfoToken', 'countryBlacklist', 
+      'enableMap', 'bannerMode', 'cloudWhitelist', 'customCloud', 'riskThreshold'
+  ]);
+  
+  if (!settings.abuseApiKey || !settings.vpnApiKey) return;
+
+  const fullMessage = await browser.messages.getFull(messageId);
   const headers = fullMessage.headers;
   const receivedHeaders = headers['received'] || [];
   
-  // Regex for Public IPs Only
-  const publicIpRegex = /\b(?!(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|127\.))((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/;
+  // Regex (Strict IPv4 + IPv6)
+  const ipv4Regex = /\b(?!(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|127\.))(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\b/;
+  const ipv6Regex = /([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])/;
 
   let hopIps = [];
-  
-  // Extract ALL public IPs from the chain (Top = Recipient, Bottom = Source)
-  // We reverse it so [0] is Source and [Length] is Destination
   for (let i = receivedHeaders.length - 1; i >= 0; i--) {
-    const match = receivedHeaders[i].match(publicIpRegex);
-    if (match) hopIps.push(match[0]);
+    const line = receivedHeaders[i];
+    const matchV4 = line.match(ipv4Regex);
+    if (matchV4) { hopIps.push(matchV4[0]); continue; }
+    const matchV6 = line.match(ipv6Regex);
+    if (matchV6 && !matchV6[0].startsWith('fe80') && matchV6[0] !== '::1') { hopIps.push(matchV6[0]); }
   }
 
-  // If no public IPs found, exit
   if (hopIps.length === 0) return;
+  const sourceIp = hopIps[0];
 
-  const sourceIp = hopIps[0]; // The Origin
-
-  // 3. Prepare URLs
-  let ipinfoBaseUrl = "https://ipinfo.io/";
-  const ipinfoSuffix = settings.ipinfoToken ? `/json?token=${settings.ipinfoToken}` : "/json";
+  // CACHE CHECK
+  const cacheKey = `cache_${sourceIp}`;
+  if (!bypassCache) {
+      const cached = await browser.storage.local.get(cacheKey);
+      if (cached[cacheKey]) {
+          const entry = cached[cacheKey];
+          // 24 Hour Expiry
+          if (Date.now() - entry.timestamp < 86400000) {
+              console.log(`EagleEye: Using Cached Data for ${sourceIp}`);
+              processAndDisplay(entry.data, settings, messageId, tabId, sourceIp);
+              return;
+          }
+      }
+  }
 
   try {
-    // 4. Run Checks
-    // Security Check (Source Only)
+    console.log(`EagleEye: Fetching Fresh Data for ${sourceIp}...`);
     const securityPromise = Promise.all([
         fetch(`https://vpnapi.io/api/${sourceIp}?key=${settings.vpnApiKey}`).then(r => r.json()),
         fetch(`https://api.abuseipdb.com/api/v2/check?ipAddress=${sourceIp}&maxAgeInDays=90`, {
@@ -40,78 +69,180 @@ browser.messageDisplay.onMessageDisplayed.addListener(async (tabId, messageId) =
         }).then(r => r.json())
     ]);
 
-    // Path Mapping (All Hops) - Fetch in parallel
-    const mapPromise = Promise.all(
-        hopIps.map(ip => fetch(ipinfoBaseUrl + ip + ipinfoSuffix).then(r => r.json()).catch(e => ({ ip: ip, country: '?' })))
-    );
-
-    const [[vpnRes, abuseRes], routeData] = await Promise.all([securityPromise, mapPromise]);
-
-    const security = vpnRes.security;
-    const abuse = abuseRes.data;
-
-    // 5. Logic & Scoring
-    const isVpn = security.vpn || security.tor || security.proxy;
-    const abuseScore = abuse.abuseConfidenceScore;
-    
-    // Determine Color Theme
-    let theme = { bg: '#e8f5e9', border: '#2e7d32', text: '#1b5e20' }; // Green
-    let statusText = "CLEAN";
-
-    if (abuseScore > 50) {
-        theme = { bg: '#ffebee', border: '#c62828', text: '#b71c1c' }; // Red
-        statusText = "HIGH RISK";
-    } else if (isVpn || abuseScore > 15) {
-        theme = { bg: '#fff3e0', border: '#ef6c00', text: '#e65100' }; // Orange
-        statusText = "CAUTION";
+    let mapPromise = Promise.resolve([]); 
+    if (settings.enableMap !== false) {
+        let ipinfoSuffix = settings.ipinfoToken ? `/json?token=${settings.ipinfoToken}` : "/json";
+        mapPromise = Promise.all(
+            hopIps.map(ip => fetch("https://ipinfo.io/" + ip + ipinfoSuffix)
+                .then(r => r.json())
+                .catch(e => ({ ip: ip, city: '?', region: '?', country: '?' }))
+            )
+        );
     }
 
-    // 6. Build Route String (e.g. "CN -> US -> US")
-    const routeString = routeData
-        .map(h => `<span title="${h.org || 'Unknown ISP'}">${h.country || '??'}</span>`)
-        .join(' &rarr; ');
+    const [[vpnRes, abuseRes], routeData] = await Promise.all([securityPromise, mapPromise]);
+    const rawData = { vpnRes, abuseRes, routeData };
 
-    // 7. Inject UI
-    browser.messageDisplayScripts.register({
-      messages: [messageId.id],
-      js: [{
-        code: `
-          (function() {
-            if (document.getElementById('eagle-eye-bar')) return;
-            
-            const box = document.createElement('div');
-            box.id = 'eagle-eye-bar';
-            box.style = "font-family: 'Segoe UI', system-ui, sans-serif; padding: 10px 15px; margin-bottom: 10px; border-left: 6px solid ${theme.border}; background: ${theme.bg}; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.1);";
-            
-            box.innerHTML = \`
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <div>
-                   <strong style="color: ${theme.text}; font-size: 1.1em;">${statusText}</strong>
-                   <span style="color: #999; margin: 0 8px;">|</span>
-                   <strong>Source:</strong> ${vpnRes.location.country_code} (${vpnRes.network.autonomous_system_organization})
-                </div>
-                <div style="font-size: 0.9em;">
-                   <strong>Abuse Score:</strong> ${abuseScore}% 
-                   <span style="color: #999; margin: 0 5px;">|</span>
-                   VPN: <b>${security.vpn ? 'YES' : 'No'}</b>
-                </div>
-              </div>
-              
-              <div style="font-size: 0.85em; color: #555; display: flex; align-items: center;">
-                 <strong style="margin-right: 8px;">Route:</strong> 
-                 ${routeString}
-                 <span style="flex-grow: 1;"></span>
-                 <span style="opacity: 0.7;">Source IP: ${sourceIp}</span>
-              </div>
-            \`;
-            
-            document.body.prepend(box);
-          })();
-        `
-      }]
+    await browser.storage.local.set({ 
+        [cacheKey]: { timestamp: Date.now(), data: rawData } 
     });
 
+    processAndDisplay(rawData, settings, messageId, tabId, sourceIp);
+
   } catch (err) {
-    console.error("EagleEye Analysis Failed:", err);
+    console.error("EagleEye Error:", err);
   }
-});
+}
+
+async function processAndDisplay(rawData, settings, messageId, tabId, sourceIp) {
+    const { vpnRes, abuseRes, routeData } = rawData;
+    
+    // Raw API Data
+    const security = vpnRes.security || {};
+    const location = vpnRes.location || {};
+    const rawNetwork = vpnRes.network || {}; // Renamed to avoid confusion
+    const abuse = abuseRes.data || { abuseConfidenceScore: 0 };
+    const countryCode = location.country_code || "XX";
+    const threshold = (settings.riskThreshold !== undefined) ? settings.riskThreshold : 50;
+
+    // Extract Specific Fields
+    const asn = rawNetwork.autonomous_system_number || "";
+    const usageType = abuse.usageType || "Unknown Usage";
+    const domain = abuse.domain || "";
+    const timeZone = location.time_zone || "";
+    
+    const blacklist = (settings.countryBlacklist || "").split(',').map(s => s.trim().toUpperCase());
+    const isBlacklisted = blacklist.includes(countryCode);
+    
+    let isVpn = security.vpn || security.tor || security.proxy || security.relay;
+    
+    // -- CLOUD ALLOWLIST LOGIC --
+    let allowedProviders = settings.cloudWhitelist || [
+        "AMAZON", "GOOGLE", "MICROSOFT", "CLOUDFLARE", 
+        "ORACLE", "IBM", "SALESFORCE", "RACKSPACE"
+    ];
+     
+    if (settings.customCloud) {
+        const customList = settings.customCloud.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+        allowedProviders = [...allowedProviders, ...customList];
+    }
+
+    const org = (rawNetwork.autonomous_system_organization || "").toUpperCase();
+    const isAllowedCloud = allowedProviders.some(provider => org.includes(provider));
+
+    const abuseScore = abuse.abuseConfidenceScore;
+    let theme = { bg: '#e8f5e9', border: '#2e7d32', text: '#1b5e20' }; 
+    let statusText = "CLEAN";
+    let riskLevel = "clean"; 
+
+    // --- HIERARCHY ---
+    if (isBlacklisted) {
+        theme = { bg: '#ffebee', border: '#b71c1c', text: '#b71c1c' };
+        statusText = "BLOCKED COUNTRY";
+        riskLevel = "high";
+    } else if (abuseScore >= threshold) { 
+        theme = { bg: '#ffebee', border: '#c62828', text: '#c62828' };
+        statusText = "HIGH RISK";
+        riskLevel = "high";
+    } else if (isVpn) {
+        if (isAllowedCloud) {
+            statusText = "CLOUD SERVER"; 
+        } else {
+            theme = { bg: '#fff3e0', border: '#ef6c00', text: '#e65100' };
+            statusText = "CAUTION (VPN/VPS)";
+            riskLevel = "caution";
+        }
+    } else if (abuseScore > 15) {
+        theme = { bg: '#fff3e0', border: '#ef6c00', text: '#e65100' };
+        statusText = "CAUTION";
+        riskLevel = "caution";
+    }
+
+    const analysisData = {
+        timestamp: Date.now(),
+        theme, statusText, riskLevel,
+        location: { 
+            country: location.country || "Unknown", 
+            code: countryCode, 
+            city: location.city || "Unknown City", 
+            region: location.region || "",
+            timeZone
+        },
+        // This is your Custom Network Object
+        network: {
+            org,
+            asn,
+            domain,
+            usageType
+        },
+        // Removed 'network' from this list to prevent overwriting
+        abuseScore, security, routeData, sourceIp, isAllowedCloud
+    };
+
+    await browser.storage.local.set({ ['analysis_' + messageId]: analysisData });
+
+    const mode = settings.bannerMode || 'always';
+    let shouldShow = false;
+    if (mode === 'always') shouldShow = true;
+    else if (mode === 'never') shouldShow = false;
+    else if (mode === 'high_risk' && riskLevel === 'high') shouldShow = true;
+    else if (mode === 'caution' && (riskLevel === 'caution' || riskLevel === 'high')) shouldShow = true;
+
+    if (shouldShow) {
+        setTimeout(() => {
+            browser.tabs.sendMessage(tabId, {
+                command: "eagleEyeRender",
+                data: analysisData
+            }).catch(() => {});
+        }, 500);
+    }
+}
+
+// --- GARBAGE COLLECTOR ---
+
+// Run cleanup on startup
+browser.runtime.onStartup.addListener(cleanupStorage);
+browser.runtime.onInstalled.addListener(cleanupStorage);
+
+async function cleanupStorage() {
+    console.log("EagleEye: Running Storage Cleanup...");
+    const allData = await browser.storage.local.get(null);
+    const keysToDelete = [];
+    const now = Date.now();
+    
+    // Settings to KEEP (Don't delete these!)
+    const protectedKeys = [
+        'abuseApiKey', 'vpnApiKey', 'ipinfoToken', 'countryBlacklist', 
+        'enableMap', 'bannerMode', 'cloudWhitelist', 'customCloud', 'riskThreshold'
+    ];
+
+    // Expiration Times
+    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 Days for IP Cache
+    const ANALYSIS_TTL = 24 * 60 * 60 * 1000;  // 24 Hours for Email Banners
+
+    for (const [key, value] of Object.entries(allData)) {
+        if (protectedKeys.includes(key)) continue;
+
+        // Check 1: IP Cache (cache_1.2.3.4)
+        if (key.startsWith('cache_')) {
+            if (value.timestamp && (now - value.timestamp > CACHE_TTL)) {
+                keysToDelete.push(key);
+            }
+        }
+        
+        // Check 2: Analysis Data (analysis_123)
+        else if (key.startsWith('analysis_')) {
+            // Delete if older than 24 hours OR if it has no timestamp (legacy data)
+            if (!value.timestamp || (now - value.timestamp > ANALYSIS_TTL)) {
+                keysToDelete.push(key);
+            }
+        }
+    }
+
+    if (keysToDelete.length > 0) {
+        await browser.storage.local.remove(keysToDelete);
+        console.log(`EagleEye: Cleaned up ${keysToDelete.length} expired entries.`);
+    } else {
+        console.log("EagleEye: Storage is clean.");
+    }
+}
