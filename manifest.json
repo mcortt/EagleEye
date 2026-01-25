@@ -3,11 +3,17 @@
   "name": "EagleEye",
   "version": "1.0",
   "description": "Advanced email forensics. Maps hops, detects VPNs, and provides deep security analysis.",
+  "author": "mcortt",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "@eagleeye",
+      "strict_min_version": "115.0"
+    }
+  },
   "permissions": [
     "<all_urls>",
     "messagesRead",
     "messagesModify",
-    "accountsRead",
     "storage",
     "https://api.abuseipdb.com/*",
     "https://vpnapi.io/*",

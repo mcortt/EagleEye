@@ -24,55 +24,113 @@ browser.runtime.onMessage.addListener((request) => {
     const level = d.riskLevel === 'high' ? 'high' : (d.riskLevel === 'caution' ? 'caution' : 'clean');
     const theme = palettes[mode][level];
 
-    const badge = (label, active) => {
-        let color, opacity;
+    // Helper to create safe badges
+    const createBadge = (label, active) => {
+        const span = document.createElement('span');
+        span.textContent = label;
+        span.style.cssText = "padding: 2px 5px; border-radius: 3px; font-size: 0.75em; margin-right: 4px; font-weight: bold;";
+        
         if (active) {
-            color = (level === 'clean') ? '#ef6c00' : '#c62828';
-            opacity = '1';
+            span.style.backgroundColor = (level === 'clean') ? '#ef6c00' : '#c62828';
+            span.style.color = "white";
+            span.style.opacity = "1";
         } else {
-            color = isDark ? '#444' : '#ddd';
-            opacity = isDark ? '0.6' : '0.4';
+            span.style.backgroundColor = isDark ? '#444' : '#ddd';
+            span.style.color = "white";
+            span.style.opacity = isDark ? '0.6' : '0.4';
         }
-        return `<span style="background:${color}; color:white; padding:2px 5px; border-radius:3px; font-size:0.75em; margin-right:4px; opacity:${opacity}; font-weight:bold;">${label}</span>`;
+        return span;
     };
 
-    const routeString = d.routeData && d.routeData.length > 0 
-        ? d.routeData.map(h => {
-            const reg = h.region ? `, ${h.region}` : "";
-            return `<span title="${h.org || ''}">${h.city || '?'}${reg}, ${h.country || '??'}</span>`;
-        }).join(' &rarr; ')
-        : "No route data available";
-
+    // Main Container
     const box = document.createElement('div');
     box.id = 'eagle-eye-bar';
-    box.style = `font-family: 'Segoe UI', system-ui, sans-serif; padding: 12px; margin-bottom: 10px; border-left: 6px solid ${theme.border}; background: ${theme.bg}; color: ${isDark ? '#e0e0e0' : '#333'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
+    box.style.cssText = `font-family: 'Segoe UI', system-ui, sans-serif; padding: 12px; margin-bottom: 10px; border-left: 6px solid ${theme.border}; background: ${theme.bg}; color: ${isDark ? '#e0e0e0' : '#333'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
 
-    box.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <div style="display: flex; align-items: center;">
-            <strong style="color: ${theme.text}; font-size: 1.1em; margin-right: 10px;">${d.statusText}</strong>
-            ${badge("VPN", d.security.vpn)}
-            ${badge("TOR", d.security.tor)}
-            ${badge("PROXY", d.security.proxy)}
-            ${badge("RELAY", d.security.relay)}
-        </div>
-        <div style="font-size: 0.9em;">
-            <strong>Risk Score:</strong> <span style="font-weight: 900; font-size: 1.1em; color: ${theme.text};">${d.abuseScore}%</span>
-        </div>
-      </div>
-      
-      <div style="font-size: 0.9em; margin-bottom: 4px;">
-        <strong>Origin:</strong> ${d.location.city}, ${d.location.region} (${d.location.country}) 
-        <span style="color: ${isDark ? '#aaa' : '#777'}"> 
-            &bull; ${d.network.org} <span style="font-size:0.9em; opacity:0.8;">(${d.network.asn})</span>
-        </span>
-      </div>
+    // Row 1: Header & Score
+    const row1 = document.createElement('div');
+    row1.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;";
 
-      <div style="font-size: 0.85em; color: ${isDark ? '#bbb' : '#555'}; border-top: 1px solid ${isDark ? '#444' : 'rgba(0,0,0,0.1)'}; padding-top: 6px; margin-top: 6px;">
-         <strong>Route:</strong> ${routeString}
-      </div>
-    `;
+    const leftGroup = document.createElement('div');
+    leftGroup.style.display = "flex";
+    leftGroup.style.alignItems = "center";
+
+    const statusText = document.createElement('strong');
+    statusText.textContent = d.statusText;
+    statusText.style.cssText = `color: ${theme.text}; font-size: 1.1em; margin-right: 10px;`;
     
+    leftGroup.appendChild(statusText);
+    leftGroup.appendChild(createBadge("VPN", d.security.vpn));
+    leftGroup.appendChild(createBadge("TOR", d.security.tor));
+    leftGroup.appendChild(createBadge("PROXY", d.security.proxy));
+    leftGroup.appendChild(createBadge("RELAY", d.security.relay));
+
+    const rightGroup = document.createElement('div');
+    rightGroup.style.fontSize = "0.9em";
+    
+    const riskLabel = document.createElement('strong');
+    riskLabel.textContent = "Risk Score: ";
+    const riskVal = document.createElement('span');
+    riskVal.textContent = d.abuseScore + "%";
+    riskVal.style.cssText = `font-weight: 900; font-size: 1.1em; color: ${theme.text};`;
+
+    rightGroup.appendChild(riskLabel);
+    rightGroup.appendChild(riskVal);
+
+    row1.appendChild(leftGroup);
+    row1.appendChild(rightGroup);
+    box.appendChild(row1);
+
+    // Row 2: Origin
+    const row2 = document.createElement('div');
+    row2.style.cssText = "font-size: 0.9em; margin-bottom: 4px;";
+    
+    const originLabel = document.createElement('strong');
+    originLabel.textContent = "Origin: ";
+    
+    const locationText = document.createTextNode(`${d.location.city}, ${d.location.region} (${d.location.country}) `);
+    
+    const networkSpan = document.createElement('span');
+    networkSpan.style.color = isDark ? '#aaa' : '#777';
+    networkSpan.textContent = ` • ${d.network.org} `;
+    
+    const asnSpan = document.createElement('span');
+    asnSpan.style.fontSize = "0.9em";
+    asnSpan.style.opacity = "0.8";
+    asnSpan.textContent = `(${d.network.asn})`;
+    networkSpan.appendChild(asnSpan);
+
+    row2.appendChild(originLabel);
+    row2.appendChild(locationText);
+    row2.appendChild(networkSpan);
+    box.appendChild(row2);
+
+    // Row 3: Route
+    const row3 = document.createElement('div');
+    row3.style.cssText = `font-size: 0.85em; color: ${isDark ? '#bbb' : '#555'}; border-top: 1px solid ${isDark ? '#444' : 'rgba(0,0,0,0.1)'}; padding-top: 6px; margin-top: 6px;`;
+    
+    const routeLabel = document.createElement('strong');
+    routeLabel.textContent = "Route: ";
+    row3.appendChild(routeLabel);
+
+    if (d.routeData && d.routeData.length > 0) {
+        d.routeData.forEach((h, i) => {
+            const hopSpan = document.createElement('span');
+            const region = h.region ? `, ${h.region}` : "";
+            hopSpan.textContent = `${h.city || '?'}${region}, ${h.country || '??'}`;
+            hopSpan.title = h.org || "";
+            row3.appendChild(hopSpan);
+
+            if (i < d.routeData.length - 1) {
+                const arrow = document.createTextNode(" → ");
+                row3.appendChild(arrow);
+            }
+        });
+    } else {
+        row3.appendChild(document.createTextNode("No route data available"));
+    }
+
+    box.appendChild(row3);
     document.body.prepend(box);
   }
 });
