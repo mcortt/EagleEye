@@ -18,6 +18,21 @@ async function loadData() {
         return;
     }
 
+    if (data.error === "setup_required") {
+        document.getElementById('loading').innerHTML = `
+            <div style="color: #c62828; padding: 20px;">
+                <h3 style="margin-top:0;">API Keys Missing</h3>
+                <p style="font-size: 11px; color: var(--text);">Reputation and VPN checks require API keys. Please go to <b>Settings</b> to configure them.</p>
+                <button class="btn" id="errorSettingsBtn" style="margin-top:10px;">Open Settings</button>
+            </div>
+        `;
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('content').style.display = 'none';
+        
+        document.getElementById('errorSettingsBtn').onclick = () => browser.runtime.openOptionsPage();
+        return;
+    }
+    
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
 

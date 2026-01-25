@@ -23,10 +23,22 @@ async function analyzeMessage(tabId, messageId, bypassCache) {
       'enableMap', 'bannerMode', 'cloudWhitelist', 'customCloud', 'riskThreshold'
   ]);
   
-if (!settings.abuseApiKey || !settings.vpnApiKey) {
-    console.warn("EagleEye: API Keys are missing. Analysis aborted.");
-    return; 
-}
+    if (!settings.abuseApiKey || !settings.vpnApiKey) {
+      const errorData = {
+          statusText: "API KEYS MISSING",
+          theme: { bg: '#ffebee', border: '#b71c1c', text: '#b71c1c' },
+          error: "setup_required",
+          sourceIp: "0.0.0.0"
+      };
+      
+      // Save this to the specific message ID so the popup can see it
+      await browser.storage.local.set({ ['analysis_' + messageId]: errorData });
+      
+      // Update the toolbar badge to a warning "!"
+      browser.messageDisplayAction.setBadgeText({ tabId: tabId, text: "!" });
+      browser.messageDisplayAction.setBadgeBackgroundColor({ tabId: tabId, color: "#b71c1c" });
+      return;
+    }
   // --- STEP 1: ALWAYS FETCH HEADERS FIRST (Moved up) ---
   // We need these for Auth results AND to find the IP.
   const fullMessage = await browser.messages.getFull(messageId);
