@@ -203,7 +203,7 @@ async function processAndDisplay(rawData, settings, messageId, tabId, sourceIp, 
         theme = { bg: '#fff3e0', border: '#ef6c00', text: '#e65100' };
         riskLevel = "caution";
 
-        if (auth.spf === 'softfail' || auth.dmarc === 'fail') {
+        if (auth.spf === 'softfail' || auth.dmarc === 'fail' || auth.arc === 'fail') {
              statusText = "CAUTION: AUTH ISSUE";
         } else if (isVpn) {
              statusText = "CAUTION: HIDDEN IDENTITY";
