@@ -24,21 +24,16 @@ browser.runtime.onMessage.addListener((request) => {
     const level = d.riskLevel === 'high' ? 'high' : (d.riskLevel === 'caution' ? 'caution' : 'clean');
     const theme = palettes[mode][level];
 
-    // Helper to create safe badges
-    const createBadge = (label, active) => {
+    // Helper to create badges (Simplified: assumes always active if called)
+    const createBadge = (label) => {
         const span = document.createElement('span');
         span.textContent = label;
-        span.style.cssText = "padding: 2px 5px; border-radius: 3px; font-size: 0.75em; margin-right: 4px; font-weight: bold;";
+        span.style.cssText = "padding: 2px 5px; border-radius: 3px; font-size: 0.75em; margin-right: 4px; font-weight: bold; color: white; opacity: 1;";
         
-        if (active) {
-            span.style.backgroundColor = (level === 'clean') ? '#ef6c00' : '#c62828';
-            span.style.color = "white";
-            span.style.opacity = "1";
-        } else {
-            span.style.backgroundColor = isDark ? '#444' : '#ddd';
-            span.style.color = "white";
-            span.style.opacity = isDark ? '0.6' : '0.4';
-        }
+        // Color depends on risk level (Orange for caution, Red for high risk/clean)
+        // Usually if a VPN is detected in "Clean" mode, it's weird, but we default to Orange if not high risk.
+        span.style.backgroundColor = (level === 'high') ? '#c62828' : '#ef6c00';
+        
         return span;
     };
 
@@ -60,10 +55,14 @@ browser.runtime.onMessage.addListener((request) => {
     statusText.style.cssText = `color: ${theme.text}; font-size: 1.1em; margin-right: 10px;`;
     
     leftGroup.appendChild(statusText);
-    leftGroup.appendChild(createBadge("VPN", d.security.vpn));
-    leftGroup.appendChild(createBadge("TOR", d.security.tor));
-    leftGroup.appendChild(createBadge("PROXY", d.security.proxy));
-    leftGroup.appendChild(createBadge("RELAY", d.security.relay));
+
+    // --- CHANGED LOGIC START ---
+    // Only append badges if the value is truthy
+    if (d.security.vpn) leftGroup.appendChild(createBadge("VPN"));
+    if (d.security.tor) leftGroup.appendChild(createBadge("TOR"));
+    if (d.security.proxy) leftGroup.appendChild(createBadge("PROXY"));
+    if (d.security.relay) leftGroup.appendChild(createBadge("RELAY"));
+    // --- CHANGED LOGIC END ---
 
     const rightGroup = document.createElement('div');
     rightGroup.style.fontSize = "0.9em";
