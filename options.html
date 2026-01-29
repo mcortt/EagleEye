@@ -10,6 +10,7 @@
     --header: #0078d7;
     --row-bg: #f9f9f9;
     --row-border: #eeeeee;
+    --link: #0078d7;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -20,6 +21,7 @@
       --header: #4cc2ff;
       --row-bg: #2d2d2d;
       --row-border: #444444;
+      --link: #66b2ff;
     }
   }
   body { padding: 25px; font-family: 'Segoe UI', sans-serif; min-width: 440px; color: var(--text); background: var(--bg); }
@@ -28,7 +30,9 @@
   input[type="text"], select, textarea { width: 100%; padding: 8px; border: 1px solid var(--input-border); border-radius: 4px; box-sizing: border-box; font-family: inherit; background: var(--input-bg); color: var(--text); }
   textarea { height: 60px; font-family: monospace; }
   .row { margin-bottom: 20px; }
-  .sub { font-size: 0.8em; opacity: 0.7; margin-top: 3px; }
+  .sub { font-size: 0.8em; opacity: 0.7; margin-top: 3px; line-height: 1.4; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
   .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--input-bg); padding: 10px; border: 1px solid var(--input-border); border-radius: 4px; margin-top: 5px; }
   .cb-item { display: flex; align-items: center; font-size: 0.9em; }
   .cb-item input { width: auto; margin-right: 8px; }
@@ -40,6 +44,7 @@
 </head>
 <body>
   <h3>EagleEye Settings</h3>
+  
   <div class="row">
     <label>Display Banner When...</label>
     <select id="bannerMode">
@@ -49,19 +54,40 @@
       <option value="never">Never (Only show details in popup)</option>
     </select>
   </div>
+
   <div class="row">
-    <label>AbuseIPDB Key</label>
-    <input type="text" id="abuseKey">
+    <label>AbuseIPDB Key (Reputation)</label>
+    <div class="sub">Required for Risk Score. <a href="https://www.abuseipdb.com/account/api" target="_blank">Get a free key here</a>.</div>
+    <input type="text" id="abuseKey" placeholder="Key required to enable risk scoring">
   </div>
+
   <div class="row">
-    <label>vpnapi.io Key</label>
-    <input type="text" id="vpnKey">
+    <label>vpnapi.io Key (Detection)</label>
+    <div class="sub">Required for VPN/Proxy detection. <a href="https://vpnapi.io/" target="_blank">Get a free key here</a>.</div>
+    <input type="text" id="vpnKey" placeholder="Key required to enable VPN detection">
   </div>
+
   <div class="row">
     <label>High Risk Threshold: <span id="threshVal" style="color:#0078d7; font-weight:bold;">50%</span></label>
     <div class="sub">AbuseIPDB score required to trigger a RED alert.</div>
     <input type="range" id="riskThreshold" min="1" max="100" value="50" style="width:100%; margin-top:5px;">
   </div>
+
+  <div class="toggle-row" style="flex-direction: column; align-items: flex-start;">
+    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+        <span class="toggle-label">Visualize Route (Map Hops)</span>
+        <input type="checkbox" id="showMap" checked>
+    </div>
+    <div class="sub" style="margin-top: 8px; border-top: 1px solid var(--input-border); padding-top: 8px; width: 100%;">
+        <strong>Note:</strong> Enabling this requires granting permission to <em>ipinfo.io</em> when you save.
+        <div style="margin-top: 8px;">
+            <label style="font-size: 1em; margin-bottom: 2px;">ipinfo.io Token (Optional)</label>
+            <input type="text" id="ipinfoKey" placeholder="Leave empty for free tier (limited requests)">
+            <div class="sub">Free tier works without a key. <a href="https://ipinfo.io/signup" target="_blank">Add a token</a> only if you hit rate limits.</div>
+        </div>
+    </div>
+  </div>
+
   <div class="row">
     <label>Cloud Provider Allowlist</label>
     <div class="sub">Treat these as "Clean" (Cloud Server) instead of "Caution".</div>
@@ -80,18 +106,12 @@
         <input type="text" id="customCloud" placeholder="HEROKU, SALESFORCE, ALIBABA">
     </div>
   </div>
+
   <div class="row">
     <label>Blocked Countries (ISO Codes)</label>
     <textarea id="blacklist" placeholder="CN, RU, KP, IR"></textarea>
   </div>
-  <div class="toggle-row">
-    <span class="toggle-label">Visualize Route (Map Hops)</span>
-    <input type="checkbox" id="showMap" checked>
-  </div>
-  <div class="row">
-    <label>ipinfo.io Token (Optional)</label>
-    <input type="text" id="ipinfoKey">
-  </div>
+
   <button id="save">Save Configuration</button>
   <p id="msg" style="text-align: center; font-size: 0.9em; min-height: 1.2em; font-weight: bold; margin-top: 10px;"></p>
   <script src="options.js"></script>

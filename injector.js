@@ -24,25 +24,18 @@ browser.runtime.onMessage.addListener((request) => {
     const level = d.riskLevel === 'high' ? 'high' : (d.riskLevel === 'caution' ? 'caution' : 'clean');
     const theme = palettes[mode][level];
 
-    // Helper to create badges (Simplified: assumes always active if called)
     const createBadge = (label) => {
         const span = document.createElement('span');
         span.textContent = label;
         span.style.cssText = "padding: 2px 5px; border-radius: 3px; font-size: 0.75em; margin-right: 4px; font-weight: bold; color: white; opacity: 1;";
-        
-        // Color depends on risk level (Orange for caution, Red for high risk/clean)
-        // Usually if a VPN is detected in "Clean" mode, it's weird, but we default to Orange if not high risk.
         span.style.backgroundColor = (level === 'high') ? '#c62828' : '#ef6c00';
-        
         return span;
     };
 
-    // Main Container
     const box = document.createElement('div');
     box.id = 'eagle-eye-bar';
     box.style.cssText = `font-family: 'Segoe UI', system-ui, sans-serif; padding: 12px; margin-bottom: 10px; border-left: 6px solid ${theme.border}; background: ${theme.bg}; color: ${isDark ? '#e0e0e0' : '#333'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
 
-    // Row 1: Header & Score
     const row1 = document.createElement('div');
     row1.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;";
 
@@ -56,22 +49,27 @@ browser.runtime.onMessage.addListener((request) => {
     
     leftGroup.appendChild(statusText);
 
-    // --- CHANGED LOGIC START ---
-    // Only append badges if the value is truthy
     if (d.security.vpn) leftGroup.appendChild(createBadge("VPN"));
     if (d.security.tor) leftGroup.appendChild(createBadge("TOR"));
     if (d.security.proxy) leftGroup.appendChild(createBadge("PROXY"));
     if (d.security.relay) leftGroup.appendChild(createBadge("RELAY"));
-    // --- CHANGED LOGIC END ---
 
     const rightGroup = document.createElement('div');
     rightGroup.style.fontSize = "0.9em";
     
     const riskLabel = document.createElement('strong');
     riskLabel.textContent = "Risk Score: ";
+    
     const riskVal = document.createElement('span');
-    riskVal.textContent = d.abuseScore + "%";
-    riskVal.style.cssText = `font-weight: 900; font-size: 1.1em; color: ${theme.text};`;
+    
+    // --- CHANGED: Check specific flag ---
+    if (d.missingAbuse) {
+        riskVal.textContent = "N/A";
+        riskVal.style.cssText = `font-weight: bold; font-size: 1.1em; color: ${theme.text}; opacity: 0.6;`;
+    } else {
+        riskVal.textContent = d.abuseScore + "%";
+        riskVal.style.cssText = `font-weight: 900; font-size: 1.1em; color: ${theme.text};`;
+    }
 
     rightGroup.appendChild(riskLabel);
     rightGroup.appendChild(riskVal);
@@ -80,7 +78,6 @@ browser.runtime.onMessage.addListener((request) => {
     row1.appendChild(rightGroup);
     box.appendChild(row1);
 
-    // Row 2: Origin
     const row2 = document.createElement('div');
     row2.style.cssText = "font-size: 0.9em; margin-bottom: 4px;";
     
@@ -104,7 +101,6 @@ browser.runtime.onMessage.addListener((request) => {
     row2.appendChild(networkSpan);
     box.appendChild(row2);
 
-    // Row 3: Route
     const row3 = document.createElement('div');
     row3.style.cssText = `font-size: 0.85em; color: ${isDark ? '#bbb' : '#555'}; border-top: 1px solid ${isDark ? '#444' : 'rgba(0,0,0,0.1)'}; padding-top: 6px; margin-top: 6px;`;
     
@@ -115,8 +111,11 @@ browser.runtime.onMessage.addListener((request) => {
     if (d.routeData && d.routeData.length > 0) {
         d.routeData.forEach((h, i) => {
             const hopSpan = document.createElement('span');
-            const region = h.region ? `, ${h.region}` : "";
-            hopSpan.textContent = `${h.city || '?'}${region}, ${h.country || '??'}`;
+            let locStr = "";
+            if (h.city && h.city !== '?' && h.country && h.country !== '?') {
+                locStr = ` (${h.city}, ${h.country})`;
+            }
+            hopSpan.textContent = `${h.ip}${locStr}`;
             hopSpan.title = h.org || "";
             row3.appendChild(hopSpan);
 
@@ -126,7 +125,7 @@ browser.runtime.onMessage.addListener((request) => {
             }
         });
     } else {
-        row3.appendChild(document.createTextNode("No route data available"));
+        row3.appendChild(document.createTextNode("No route hops available"));
     }
 
     box.appendChild(row3);

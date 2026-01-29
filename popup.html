@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <style>
-  /* GLOBAL RESET: This fixes the scroll bug */
+  /* GLOBAL RESET */
   * { box-sizing: border-box; }
 
   :root {
@@ -17,6 +17,8 @@
     --btn-hover: #dddddd;
     --btn-text: #333333;
     --val-inactive: #555555; 
+    --warn-bg: #fff3e0;
+    --warn-text: #e65100;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -31,70 +33,62 @@
       --btn-hover: #4a4a4a;
       --btn-text: #ffffff;
       --val-inactive: #e0e0e0; 
+      --warn-bg: #2a1c00;
+      --warn-text: #ffb74d;
     }
   }
 
-  /* HTML: Hide the outer scrollbar explicitly */
   html { overflow: hidden; }
 
   body { 
     width: 360px; 
     font-family: 'Segoe UI', sans-serif; 
-    margin: 0; 
-    padding: 0; 
-    background: var(--bg); 
-    color: var(--text);
-    /* Allow body to scroll if height exceeds monitor, but hide x-axis */
-    overflow-y: auto; 
-    overflow-x: hidden;
+    margin: 0; padding: 0; 
+    background: var(--bg); color: var(--text);
+    overflow-y: auto; overflow-x: hidden;
   }
   
   .header { 
-    padding: 6px 10px; 
-    background: var(--card-bg); 
+    padding: 6px 10px; background: var(--card-bg); 
     border-bottom: 1px solid var(--border); 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
+    display: flex; justify-content: space-between; align-items: center; 
   }
 
   h2 { margin: 0; font-size: 18px; color: var(--header-text); }
   .status-badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-top: 3px; color: white; }
   
   .section { padding: 6px 10px; background: var(--card-bg); margin-top: 1px; }
-  
   .section h4 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: var(--sub-text); letter-spacing: 0.5px; border-bottom: 2px solid var(--border); padding-bottom: 4px; }
   
-  /* GRID UPDATES for 4-Column Auth */
   .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px; text-align: center; }
-  
   .label { color: var(--sub-text); font-size: 9px; text-transform: uppercase; font-weight: bold; margin-bottom: 2px; }
   .val { font-weight: 600; color: var(--val-inactive); font-size: 12px; } 
   
-  /* SCROLLABLE LIST: Clean scrollbar */
-  #routeList {
-      max-height: 90px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      margin-top: 5px;
-  }
-  
+  #routeList { max-height: 90px; overflow-y: auto; scrollbar-width: thin; margin-top: 5px; }
   .hop-list { font-size: 11px; }
   .hop { padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
   .hop:last-child { border: none; }
   
-  /* BUTTONS: Footer Container */
-  .footer {
-      display: flex; 
-      gap: 10px; 
-      padding: 6px; 
-      background: var(--bg); 
-      border-top: 1px solid var(--border);
-  }
-
+  .footer { display: flex; gap: 10px; padding: 6px; background: var(--bg); border-top: 1px solid var(--border); }
   .btn { display: block; width: 100%; padding: 8px; text-align: center; background: var(--btn-bg); border: none; cursor: pointer; color: var(--btn-text); font-weight: 600; border-radius: 4px; flex: 1; font-size: 13px; }
   .btn:hover { background: var(--btn-hover); }
   
+  /* WARNING BOX for Permissions */
+  #permissionWarning {
+      display: none; /* Hidden by default */
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      padding: 8px;
+      font-size: 11px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+  }
+  #permBtn {
+      background: transparent; border: 1px solid var(--warn-text); color: var(--warn-text);
+      border-radius: 3px; cursor: pointer; font-weight: bold; padding: 2px 8px; margin-left: 5px;
+  }
+  #permBtn:hover { background: rgba(0,0,0,0.05); }
+
   #loading { padding: 20px; text-align: center; color: var(--sub-text); }
   #content { display: none; }
 </style>
@@ -109,6 +103,11 @@
         <div id="mainStatus" class="status-badge">ANALYZING</div>
       </div>
       <img src="icon.svg" style="width: 38px; height: 38px;">
+    </div>
+
+    <div id="permissionWarning">
+        <span>Missing permissions for full analysis.</span>
+        <button id="permBtn">Enable Now</button>
     </div>
 
     <div class="section">
@@ -135,28 +134,16 @@
 
     <div class="section">
       <h4>Authentication</h4>
-      <div class="grid-4" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
-        <div>
-            <div class="label">SPF</div>
-            <div class="val" id="spfVal">...</div>
-        </div>
-        <div>
-            <div class="label">DKIM</div>
-            <div class="val" id="dkimVal">...</div>
-        </div>
-        <div>
-            <div class="label">DMARC</div> <div class="val" id="dmarcVal">...</div>
-        </div>
-        <div>
-            <div class="label">ARC</div>
-            <div class="val" id="arcVal">...</div>
-        </div>
+      <div class="grid-4">
+        <div><div class="label">SPF</div><div class="val" id="spfVal">...</div></div>
+        <div><div class="label">DKIM</div><div class="val" id="dkimVal">...</div></div>
+        <div><div class="label">DMARC</div><div class="val" id="dmarcVal">...</div></div>
+        <div><div class="label">ARC</div><div class="val" id="arcVal">...</div></div>
       </div>
     </div>
 
     <div class="section">
       <h4>Network Context</h4>
-      
       <div class="grid-4" style="grid-template-columns: 1fr 1fr; margin-bottom: 8px;">
           <div style="text-align: left;">
               <div class="label">USAGE TYPE</div>
@@ -167,22 +154,14 @@
               <div class="val" id="tzVal" style="color: var(--text);">--</div>
           </div>
       </div>
-
       <div style="font-size:11px; margin-bottom:6px; border-top: 1px solid var(--border); padding-top: 6px;">
         <span class="label">ISP / ORGANIZATION</span><br>
         <strong id="ispVal" style="color: var(--text);">Unknown</strong>
         <span id="asnVal" style="color: var(--sub-text); font-size: 0.9em; margin-left: 5px;">(AS----)</span>
       </div>
-
       <div style="display: flex; justify-content: space-between; font-size:11px;">
-        <div>
-            <span class="label">DOMAIN</span><br>
-            <span id="domainVal" style="color: var(--text);">--</span>
-        </div>
-        <div style="text-align: right;">
-            <span class="label">LOCATION</span><br>
-            <span id="cityVal" style="color: var(--text);">Unknown</span>
-        </div>
+        <div><span class="label">DOMAIN</span><br><span id="domainVal" style="color: var(--text);">--</span></div>
+        <div style="text-align: right;"><span class="label">LOCATION</span><br><span id="cityVal" style="color: var(--text);">Unknown</span></div>
       </div>
     </div>
 
