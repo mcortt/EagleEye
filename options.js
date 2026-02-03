@@ -84,7 +84,7 @@ browser.storage.local.get([
     if (res.vpnApiKey) document.getElementById('vpnKey').value = res.vpnApiKey;
     if (res.ipinfoToken) document.getElementById('ipinfoKey').value = res.ipinfoToken;
     if (res.countryBlacklist) document.getElementById('blacklist').value = res.countryBlacklist;
-    document.getElementById('showMap').checked = (res.enableMap !== false);
+    document.getElementById('showMap').checked = (res.enableMap === true);
     if (res.bannerMode) document.getElementById('bannerMode').value = res.bannerMode;
     if (res.customCloud) document.getElementById('customCloud').value = res.customCloud;
     

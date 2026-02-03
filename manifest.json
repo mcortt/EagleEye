@@ -1,13 +1,13 @@
 {
   "manifest_version": 2,
   "name": "EagleEye",
-  "version": "1.3.0",
+  "version": "1.0",
   "description": "Advanced email forensics. Maps hops, detects VPNs, and provides deep security analysis.",
   "author": "mcortt",
   "browser_specific_settings": {
     "gecko": {
-      "id": "@eagleeye",
-      "strict_min_version": "115.0"
+      "id": "eagleeye@thunderbird.local",
+      "strict_min_version": "140.0"
     }
   },
   "permissions": [
